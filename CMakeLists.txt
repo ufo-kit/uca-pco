@@ -9,6 +9,7 @@ find_package(PkgConfig)
 include(PkgConfigVars)
 
 add_definitions("-std=c99 -Wall")
+add_definitions(-DG_LOG_DOMAIN="Uca-Pco")
 
 pkg_check_modules(UCA libuca>=2.0.0 REQUIRED)
 pkg_check_variable(libuca plugindir)
