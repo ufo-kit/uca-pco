@@ -215,6 +215,8 @@ struct _UcaPcoCameraPrivate {
     guint16 delay_timebase;
     guint16 exposure_timebase;
     gchar *version;
+
+    UcaCameraTriggerSource trigger_source;
 };
 
 static pco_cl_map_entry pco_cl_map[] = {
@@ -485,6 +487,7 @@ uca_pco_camera_start_recording (UcaCamera *camera, GError **error)
     priv = UCA_PCO_CAMERA_GET_PRIVATE (camera);
 
     g_object_get (camera,
+                  "trigger-source", &priv->trigger_source,
                   "sensor-extended", &use_extended,
                   "transfer-asynchronously", &transfer_async,
                   NULL);
@@ -644,14 +647,20 @@ uca_pco_camera_trigger (UcaCamera *camera, GError **error)
     }
 }
 
+static gint
+get_max_timeout (UcaPcoCameraPrivate *priv)
+{
+    return priv->trigger_source == UCA_CAMERA_TRIGGER_SOURCE_EXTERNAL ? G_MAXINT32 : 5;
+}
+
 static gboolean
 uca_pco_camera_grab(UcaCamera *camera, gpointer data, GError **error)
 {
-    static const gint MAX_TIMEOUT = 5;
     UcaPcoCameraPrivate *priv;
     gboolean is_readout;
     guint16 *frame;
     guint err;
+    gint timeout;
 
     g_return_val_if_fail (UCA_IS_PCO_CAMERA(camera), FALSE);
 
@@ -676,7 +685,7 @@ uca_pco_camera_grab(UcaCamera *camera, gpointer data, GError **error)
     }
 
     priv->last_frame = Fg_getLastPicNumberBlockingEx(priv->fg, priv->last_frame + 1,
-                                                     priv->fg_port, MAX_TIMEOUT, priv->fg_mem);
+                                                     priv->fg_port, get_max_timeout (priv), priv->fg_mem);
 
     if (priv->last_frame <= 0) {
         g_set_error (error, UCA_PCO_CAMERA_ERROR,
