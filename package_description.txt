@@ -1,0 +1,3 @@
+Uca plugin for the pco detector family.
+
+The plugin has been tested successfully with the pco.4000, pco.edge and pco.dimax detectors.
