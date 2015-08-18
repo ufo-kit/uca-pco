@@ -137,6 +137,7 @@ enum {
     PROP_TIMESTAMP_MODE,
     PROP_VERSION,
     PROP_EDGE_GLOBAL_SHUTTER,
+    PROP_FRAME_GRABBER_TIMEOUT,
     N_PROPERTIES
 };
 
@@ -215,6 +216,7 @@ struct _UcaPcoCameraPrivate {
     guint16 delay_timebase;
     guint16 exposure_timebase;
     gchar *version;
+    guint timeout;
 
     UcaCameraTriggerSource trigger_source;
 };
@@ -650,7 +652,7 @@ uca_pco_camera_trigger (UcaCamera *camera, GError **error)
 static gint
 get_max_timeout (UcaPcoCameraPrivate *priv)
 {
-    return priv->trigger_source == UCA_CAMERA_TRIGGER_SOURCE_EXTERNAL ? G_MAXINT32 : 5;
+    return priv->trigger_source == UCA_CAMERA_TRIGGER_SOURCE_EXTERNAL ? G_MAXINT32 : (gint) priv->timeout;
 }
 
 static gboolean
@@ -660,7 +662,6 @@ uca_pco_camera_grab(UcaCamera *camera, gpointer data, GError **error)
     gboolean is_readout;
     guint16 *frame;
     guint err;
-    gint timeout;
 
     g_return_val_if_fail (UCA_IS_PCO_CAMERA(camera), FALSE);
 
@@ -707,7 +708,6 @@ uca_pco_camera_grab(UcaCamera *camera, gpointer data, GError **error)
 static gboolean
 uca_pco_camera_readout (UcaCamera *camera, gpointer data, guint index, GError **error)
 {
-    static const gint MAX_TIMEOUT = 5;
     UcaPcoCameraPrivate *priv;
     guint16 *frame;
 
@@ -735,7 +735,7 @@ uca_pco_camera_readout (UcaCamera *camera, gpointer data, guint index, GError **
     pco_read_images(priv->pco, priv->active_segment, index, index);
 
     priv->last_frame = Fg_getLastPicNumberBlockingEx(priv->fg, priv->last_frame + 1,
-                                                     priv->fg_port, MAX_TIMEOUT, priv->fg_mem);
+                                                     priv->fg_port, priv->timeout, priv->fg_mem);
 
     if (priv->last_frame <= 0) {
         g_set_error (error, UCA_PCO_CAMERA_ERROR, UCA_PCO_CAMERA_ERROR_FG_GENERAL,
@@ -1023,6 +1023,10 @@ uca_pco_camera_set_property(GObject *object, guint property_id, const GValue *va
                 shutter = g_value_get_boolean (value) ? PCO_EDGE_GLOBAL_SHUTTER : PCO_EDGE_ROLLING_SHUTTER;
                 err = pco_edge_set_shutter (priv->pco, shutter);
             }
+            break;
+
+        case PROP_FRAME_GRABBER_TIMEOUT:
+            priv->timeout = g_value_get_uint (value);
             break;
 
         default:
@@ -1427,6 +1431,10 @@ uca_pco_camera_get_property (GObject *object, guint property_id, GValue *value, 
             }
             break;
 
+        case PROP_FRAME_GRABBER_TIMEOUT:
+            g_value_set_uint (value, priv->timeout);
+            break;
+
         default:
             G_OBJECT_WARN_INVALID_PROPERTY_ID(object, property_id, pspec);
             return;
@@ -1704,6 +1712,13 @@ uca_pco_camera_class_init(UcaPcoCameraClass *klass)
             "Global shutter enabled",
             FALSE, G_PARAM_READWRITE);
 
+    pco_properties[PROP_FRAME_GRABBER_TIMEOUT] =
+        g_param_spec_uint ("frame-grabber-timeout",
+            "Frame grabber timeout in seconds",
+            "Frame grabber timeout in seconds",
+            0, G_MAXUINT, 5,
+            G_PARAM_READWRITE);
+
     for (guint id = N_BASE_PROPERTIES; id < N_PROPERTIES; id++)
         g_object_class_install_property(gobject_class, id, pco_properties[id]);
 
@@ -1832,6 +1847,7 @@ uca_pco_camera_init (UcaPcoCamera *self)
     priv->exposure_timebase = TIMEBASE_INVALID;
     priv->construct_error = NULL;
     priv->version = g_strdup (DEFAULT_VERSION);
+    priv->timeout = 5;
 
     if (!setup_pco_camera (priv))
         return;
