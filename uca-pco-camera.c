@@ -149,9 +149,7 @@ static gint base_overrideables[] = {
     PROP_SENSOR_PIXEL_HEIGHT,
     PROP_SENSOR_BITDEPTH,
     PROP_SENSOR_HORIZONTAL_BINNING,
-    PROP_SENSOR_HORIZONTAL_BINNINGS,
     PROP_SENSOR_VERTICAL_BINNING,
-    PROP_SENSOR_VERTICAL_BINNINGS,
     PROP_EXPOSURE_TIME,
     PROP_FRAMES_PER_SECOND,
     PROP_TRIGGER_SOURCE,
@@ -204,8 +202,6 @@ struct _UcaPcoCameraPrivate {
     guint16 roi_x, roi_y;
     guint16 roi_width, roi_height;
     guint16 roi_horizontal_steps, roi_vertical_steps;
-    GValueArray *horizontal_binnings;
-    GValueArray *vertical_binnings;
     GValueArray *pixelrates;
 
     frameindex_t last_frame;
@@ -240,40 +236,6 @@ static pco_cl_map_entry *get_pco_cl_map_entry(int camera_type)
     }
 
     return NULL;
-}
-
-static guint
-fill_binnings(UcaPcoCameraPrivate *priv)
-{
-    uint16_t *horizontal = NULL;
-    uint16_t *vertical = NULL;
-    guint num_horizontal, num_vertical;
-
-    guint err = pco_get_possible_binnings(priv->pco,
-            &horizontal, &num_horizontal,
-            &vertical, &num_vertical);
-
-    GValue val = {0};
-    g_value_init(&val, G_TYPE_UINT);
-
-    if (err == PCO_NOERROR) {
-        priv->horizontal_binnings = g_value_array_new(num_horizontal);
-        priv->vertical_binnings = g_value_array_new(num_vertical);
-
-        for (guint i = 0; i < num_horizontal; i++) {
-            g_value_set_uint(&val, horizontal[i]);
-            g_value_array_append(priv->horizontal_binnings, &val);
-        }
-
-        for (guint i = 0; i < num_vertical; i++) {
-            g_value_set_uint(&val, vertical[i]);
-            g_value_array_append(priv->vertical_binnings, &val);
-        }
-    }
-
-    free(horizontal);
-    free(vertical);
-    return err;
 }
 
 static void
@@ -1115,16 +1077,8 @@ uca_pco_camera_get_property (GObject *object, guint property_id, GValue *value, 
             g_value_set_uint(value, priv->binning_h);
             break;
 
-        case PROP_SENSOR_HORIZONTAL_BINNINGS:
-            g_value_set_boxed(value, priv->horizontal_binnings);
-            break;
-
         case PROP_SENSOR_VERTICAL_BINNING:
             g_value_set_uint(value, priv->binning_v);
-            break;
-
-        case PROP_SENSOR_VERTICAL_BINNINGS:
-            g_value_set_boxed(value, priv->vertical_binnings);
             break;
 
         case PROP_SENSOR_BITDEPTH:
@@ -1447,12 +1401,6 @@ static void
 uca_pco_camera_finalize(GObject *object)
 {
     UcaPcoCameraPrivate *priv = UCA_PCO_CAMERA_GET_PRIVATE(object);
-
-    if (priv->horizontal_binnings)
-        g_value_array_free (priv->horizontal_binnings);
-
-    if (priv->vertical_binnings)
-        g_value_array_free (priv->vertical_binnings);
 
     if (priv->pixelrates)
         g_value_array_free (priv->pixelrates);
@@ -1855,7 +1803,6 @@ uca_pco_camera_init (UcaPcoCamera *self)
     if (!setup_frame_grabber (priv))
         return;
 
-    fill_binnings (priv);
     override_property_ranges (self);
 
     camera = UCA_CAMERA (self);
