@@ -1821,7 +1821,7 @@ uca_pco_camera_init (UcaPcoCamera *self)
 }
 
 G_MODULE_EXPORT GType
-uca_camera_get_type (void)
+camera_plugin_get_type (void)
 {
     return UCA_TYPE_PCO_CAMERA;
 }
