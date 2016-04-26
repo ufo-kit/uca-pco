@@ -873,11 +873,8 @@ uca_pco_camera_set_property(GObject *object, guint property_id, const GValue *va
             break;
 
         case PROP_DOUBLE_IMAGE_MODE:
-            if (!pco_is_double_image_mode_available(priv->pco))
-                g_warning("Double image mode is not available on this pco model");
-            else
+            if (pco_is_double_image_mode_available(priv->pco))
                 err = pco_set_double_image_mode(priv->pco, g_value_get_boolean(value));
-            break;
 
         case PROP_OFFSET_MODE:
             err = pco_set_offset_mode(priv->pco, g_value_get_boolean(value));
