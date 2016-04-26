@@ -303,10 +303,10 @@ convert_timebase(guint16 timebase)
     return 1e-3;
 }
 
-static void
-read_timebase(UcaPcoCameraPrivate *priv)
+static guint
+read_timebase (UcaPcoCameraPrivate *priv)
 {
-    pco_get_timebase(priv->pco, &priv->delay_timebase, &priv->exposure_timebase);
+    return pco_get_timebase (priv->pco, &priv->delay_timebase, &priv->exposure_timebase);
 }
 
 static gboolean
@@ -639,7 +639,8 @@ uca_pco_camera_grab(UcaCamera *camera, gpointer data, GError **error)
          * No joke, the pco firmware allows to read a range of images but
          * implements only reading single images ...
          */
-        pco_read_images(priv->pco, priv->active_segment, priv->current_image, priv->current_image);
+        err = pco_read_images (priv->pco, priv->active_segment, priv->current_image, priv->current_image);
+        CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
         priv->current_image++;
     }
     else {
@@ -672,6 +673,7 @@ uca_pco_camera_readout (UcaCamera *camera, gpointer data, guint index, GError **
 {
     UcaPcoCameraPrivate *priv;
     guint16 *frame;
+    guint err;
 
     g_return_val_if_fail (UCA_IS_PCO_CAMERA(camera), FALSE);
 
@@ -694,7 +696,8 @@ uca_pco_camera_readout (UcaCamera *camera, gpointer data, guint index, GError **
         return FALSE;
     }
 
-    pco_read_images(priv->pco, priv->active_segment, index, index);
+    err = pco_read_images (priv->pco, priv->active_segment, index, index);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
 
     priv->last_frame = Fg_getLastPicNumberBlockingEx(priv->fg, priv->last_frame + 1,
                                                      priv->fg_port, priv->timeout, priv->fg_mem);
@@ -774,8 +777,12 @@ uca_pco_camera_set_property(GObject *object, guint property_id, const GValue *va
                 if (priv->description->type == CAMERATYPE_PCO4000) {
                     const gdouble time = g_value_get_double(value);
 
-                    if (priv->exposure_timebase == TIMEBASE_INVALID)
-                        read_timebase(priv);
+                    if (priv->exposure_timebase == TIMEBASE_INVALID) {
+                        err = read_timebase (priv);
+
+                        if (err != PCO_NOERROR)
+                            break;
+                    }
 
                     /*
                      * Lets check if we can express the time in the current time
@@ -933,7 +940,7 @@ uca_pco_camera_set_property(GObject *object, guint property_id, const GValue *va
                 guint32 mode;
 
                 mode = g_value_get_boolean (value) ? PCO_SCANMODE_FAST : PCO_SCANMODE_SLOW;
-                pco_set_scan_mode (priv->pco, mode);
+                err = pco_set_scan_mode (priv->pco, mode);
             }
             break;
 
@@ -1138,10 +1145,10 @@ uca_pco_camera_get_property (GObject *object, guint property_id, GValue *value, 
             {
                 if (priv->description->type == CAMERATYPE_PCO4000) {
                     uint32_t exposure_time;
-                    err = pco_get_exposure_time(priv->pco, &exposure_time);
+                    err = pco_get_exposure_time (priv->pco, &exposure_time);
 
-                    if (priv->exposure_timebase == TIMEBASE_INVALID)
-                        read_timebase(priv);
+                    if (err != PCO_NOERROR && priv->exposure_timebase == TIMEBASE_INVALID)
+                        err = read_timebase (priv);
 
                     g_value_set_double(value, convert_timebase(priv->exposure_timebase) * exposure_time);
                 }
@@ -1677,11 +1684,13 @@ setup_pco_camera (UcaPcoCameraPrivate *priv)
     guint16 camera_subtype;
     guint32 serial;
     guint16 version[4];
+    guint err;
+    GError **error = &priv->construct_error;
 
     priv->pco = pco_init();
 
     if (priv->pco == NULL) {
-        g_set_error (&priv->construct_error,
+        g_set_error (error,
                      UCA_PCO_CAMERA_ERROR, UCA_PCO_CAMERA_ERROR_LIBPCO_INIT,
                      "Initializing libpco failed");
         return FALSE;
@@ -1691,7 +1700,7 @@ setup_pco_camera (UcaPcoCameraPrivate *priv)
     map_entry = get_pco_cl_map_entry (camera_type);
 
     if (map_entry == NULL) {
-        g_set_error (&priv->construct_error,
+        g_set_error (error,
                      UCA_PCO_CAMERA_ERROR, UCA_PCO_CAMERA_ERROR_UNSUPPORTED,
                      "Camera type is not supported");
         return FALSE;
@@ -1699,13 +1708,23 @@ setup_pco_camera (UcaPcoCameraPrivate *priv)
 
     priv->description = map_entry;
 
-    pco_get_active_segment (priv->pco, &priv->active_segment);
-    pco_get_resolution (priv->pco, &priv->width, &priv->height, &priv->width_ex, &priv->height_ex);
-    pco_get_binning (priv->pco, &priv->binning_h, &priv->binning_v);
-    pco_set_auto_transfer (priv->pco, 1);
+    err = pco_get_active_segment (priv->pco, &priv->active_segment);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
 
-    pco_get_roi (priv->pco, roi);
-    pco_get_roi_steps (priv->pco, &priv->roi_horizontal_steps, &priv->roi_vertical_steps);
+    err = pco_get_resolution (priv->pco, &priv->width, &priv->height, &priv->width_ex, &priv->height_ex);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
+
+    err = pco_get_binning (priv->pco, &priv->binning_h, &priv->binning_v);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
+
+    err = pco_set_auto_transfer (priv->pco, 1);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
+
+    err = pco_get_roi (priv->pco, roi);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
+
+    err = pco_get_roi_steps (priv->pco, &priv->roi_horizontal_steps, &priv->roi_vertical_steps);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
 
     priv->roi_x = roi[0] - 1;
     priv->roi_y = roi[1] - 1;
@@ -1713,7 +1732,9 @@ setup_pco_camera (UcaPcoCameraPrivate *priv)
     priv->roi_height = roi[3] - roi[1] + 1;
     priv->num_recorded_images = 0;
 
-    pco_get_camera_version (priv->pco, &serial, &version[0], &version[1], &version[2], &version[3]);
+    err = pco_get_camera_version (priv->pco, &serial, &version[0], &version[1], &version[2], &version[3]);
+    CHECK_AND_RETURN_VAL_ON_PCO_ERROR (err, FALSE);
+
     g_free (priv->version);
     priv->version = g_strdup_printf ("%u, %u.%u, %u.%u", serial, version[0], version[1], version[2], version[3]);
 
