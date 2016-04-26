@@ -1180,9 +1180,7 @@ uca_pco_camera_get_property (GObject *object, guint property_id, GValue *value, 
             break;
 
         case PROP_DOUBLE_IMAGE_MODE:
-            if (!pco_is_double_image_mode_available(priv->pco))
-                g_warning("Double image mode is not available on this pco model");
-            else {
+            if (pco_is_double_image_mode_available(priv->pco)) {
                 bool on;
                 err = pco_get_double_image_mode(priv->pco, &on);
                 g_value_set_boolean(value, on);
