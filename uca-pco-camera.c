@@ -660,6 +660,13 @@ uca_pco_camera_grab(UcaCamera *camera, gpointer data, GError **error)
 
     frame = Fg_getImagePtrEx (priv->fg, priv->last_frame, priv->fg_port, priv->fg_mem);
 
+    if (frame == NULL) {
+        g_set_error (error, UCA_PCO_CAMERA_ERROR,
+                     UCA_PCO_CAMERA_ERROR_FG_GENERAL,
+                     "Frame data is NULL");
+        return FALSE;
+    }
+
     if (is_edge (priv))
         pco_get_reorder_func(priv->pco)((guint16 *) data, frame, priv->frame_width, priv->frame_height);
     else
