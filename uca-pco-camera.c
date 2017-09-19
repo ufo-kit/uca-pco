@@ -418,8 +418,8 @@ check_and_resize_memory (UcaPcoCameraPrivate *priv, GError **error)
         priv->frame_height = priv->roi_height;
         priv->buffer_size = 2 * priv->frame_width * priv->frame_height;
 
-        Fg_setParameter (priv->fg, FG_WIDTH, &fg_width, priv->fg_port);
-        Fg_setParameter (priv->fg, FG_HEIGHT, &priv->frame_height, priv->fg_port);
+        FG_TRY_PARAM (priv->fg, error, FG_WIDTH, &fg_width, priv->fg_port);
+        FG_TRY_PARAM (priv->fg, error, FG_HEIGHT, &priv->frame_height, priv->fg_port);
 
         if (priv->fg_mem)
             Fg_FreeMemEx (priv->fg, priv->fg_mem);
