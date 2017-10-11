@@ -12,12 +12,12 @@ add_definitions("-std=c99 -Wall")
 add_definitions(-DG_LOG_DOMAIN="Uca-Pco")
 
 pkg_check_modules(UCA libuca>=2.1.0 REQUIRED)
+pkg_check_modules(PCO pco>=1.0.0 REQUIRED)
 pkg_check_variable(libuca plugindir)
 
 
 # --- Plugin specific ---------------------------------------------------------
 
-find_package(PCO)
 find_package(FgLib5)
 find_package(ClSerSis)
 
