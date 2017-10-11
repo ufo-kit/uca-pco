@@ -34,13 +34,13 @@ glib2_mkenums(uca-pco-enums
     uca-pco-enums
     uca-pco-camera.h)
 
-add_library(ucapco SHARED
-    uca-pco-camera.c
-    uca-pco-enums.c)
-
 link_directories(
     ${UCA_LIBRARY_DIRS}
     ${PCO_LIBRARY_DIRS})
+
+add_library(ucapco SHARED
+    uca-pco-camera.c
+    uca-pco-enums.c)
 
 target_link_libraries(ucapco
     ${UCA_LIBRARIES}
