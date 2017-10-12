@@ -284,7 +284,8 @@ static void
 override_maximum_adcs(UcaPcoCameraPrivate *priv)
 {
     GParamSpecInt *spec = (GParamSpecInt *) pco_properties[PROP_SENSOR_ADCS];
-    spec->maximum = pco_get_maximum_number_of_adcs(priv->pco);
+    guint32 maximum = pco_get_maximum_number_of_adcs (priv->pco);
+    spec->maximum = maximum == 0 ? 1 : maximum;
 }
 
 static gdouble
