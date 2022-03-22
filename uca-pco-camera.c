@@ -1026,8 +1026,8 @@ uca_pco_camera_get_property (GObject *object, guint property_id, GValue *value, 
     priv = UCA_PCO_CAMERA_GET_PRIVATE(object);
 
     /* Should fix #20 */
-    if (priv->is_recording) {
-        if (priv->description->type == CAMERATYPE_PCO4000) {
+    if (priv->description->type == CAMERATYPE_PCO4000) {
+        if (priv->is_recording) {
             return;
         }
     }
