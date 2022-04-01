@@ -15,6 +15,7 @@
    with this library; if not, write to the Free Software Foundation, Inc., 51
    Franklin St, Fifth Floor, Boston, MA 02110, USA */
 
+#include <glib.h>
 #include <gio/gio.h>
 #include <gmodule.h>
 #include <stdlib.h>
@@ -208,6 +209,7 @@ struct _UcaPcoCameraPrivate {
     guint16 active_segment;
     guint num_recorded_images;
     guint current_image;
+    gboolean is_recording;
 
     guint16 delay_timebase;
     guint16 exposure_timebase;
@@ -524,6 +526,8 @@ uca_pco_camera_start_recording (UcaCamera *camera, GError **error)
 
     err = Fg_AcquireEx (priv->fg, priv->fg_port, GRAB_INFINITE, ACQ_STANDARD, priv->fg_mem);
     FG_SET_ERROR (err, priv->fg, UCA_PCO_CAMERA_ERROR_FG_ACQUISITION);
+
+    priv->is_recording = TRUE;
 }
 
 static void
@@ -544,6 +548,8 @@ uca_pco_camera_stop_recording (UcaCamera *camera, GError **error)
 
     err = Fg_setStatusEx(priv->fg, FG_UNBLOCK_ALL, 0, priv->fg_port, priv->fg_mem);
     FG_SET_ERROR (err, priv->fg, UCA_PCO_CAMERA_ERROR_FG_ACQUISITION);
+
+    priv->is_recording = FALSE;
 }
 
 static void
@@ -1020,8 +1026,8 @@ uca_pco_camera_get_property (GObject *object, guint property_id, GValue *value, 
     priv = UCA_PCO_CAMERA_GET_PRIVATE(object);
 
     /* Should fix #20 */
-    if (uca_camera_is_recording (UCA_CAMERA (object))) {
-        if (priv->description->type == CAMERATYPE_PCO4000) {
+    if (priv->description->type == CAMERATYPE_PCO4000) {
+        if (priv->is_recording) {
             return;
         }
     }
@@ -1820,6 +1826,7 @@ uca_pco_camera_init (UcaPcoCamera *self)
     priv->construct_error = NULL;
     priv->version = g_strdup (DEFAULT_VERSION);
     priv->timeout = 5;
+    priv->is_recording = FALSE;
 
     if (!setup_pco_camera (priv))
         return;
