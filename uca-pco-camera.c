@@ -1394,10 +1394,7 @@ uca_pco_camera_get_property (GObject *object, guint property_id, GValue *value, 
 
         case PROP_IS_RECORDING:
             {
-                bool is_recording;
-
-                err = pco_is_recording (priv->pco, &is_recording);
-                g_value_set_boolean (value, (gboolean) is_recording);
+                g_value_set_boolean (value, priv->is_recording);
             }
             break;
 
